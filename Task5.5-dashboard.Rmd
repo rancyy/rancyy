@@ -1,0 +1,165 @@
+---
+title: "Task5.5-Dashboard"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    navbar:
+     - { title: "Link to testA web", href: "https://www.rancyreneis.tk/" }
+     - { title: "Link to testB web", href: "https://rancyren.wixsite.com/website-1" }
+---
+Hi.I am Ranci. This is my experimental data.
+In each session, 40 subjects entered the experiment (20 in test A and 20 in test B), 8 interim analysis pending (total subjects = 180 for power = 95%). 
+
+---
+```{r}
+library(psych) 
+library(readxl)
+library(nlme)
+library(ggplot2)
+library(lsr)
+library(emmeans)
+library(dplyr)
+```
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+```
+
+Main values {data-icon="fas fa-database"}
+=====================================     
+Column 
+-------------------------------------
+### The latest analysis
+```{r}
+finf<-file.info("AB_Test_1.xls")
+mtime<-finf$mtime
+computeArticles = function(...) return(mtime)
+articles = computeArticles()
+valueBox(articles, icon = "fa-pencil")
+```
+
+
+### Estimated time for next analysis
+```{r}
+computeComments = function(...) return("2021-05-25 16:00:00")
+comments = computeComments()
+valueBox(comments, icon = "ion-android-alarm-clock")
+```
+
+
+### Estimated time for completion
+```{r}
+computeSpam = function(...) return("8 days")
+spam = computeSpam()
+valueBox(
+  spam, icon = "ion-android-clipboard",
+  color = ifelse(spam > 10, "warning", "primary")
+)
+```
+
+
+Column 
+-----------------------------------------------------------------------
+### Z
+```{r}
+d <- as.data.frame(read_xls("AB_Test_1.xls"))
+Test<-as.factor(d$Test)
+Time <-as.numeric(d$Time)
+sd_A <- sd(d[d$Test == "A",]$Time)
+sd_B <- sd(d[d$Test == "B",]$Time)
+X_A <- mean(d[d$Test == "A",]$Time)
+X_B <- mean(d[d$Test == "B",]$Time)
+S2_A <- sd_A^2
+S2_B <- sd_B^2
+n_A <- length(d[d$Test == "A",]$Time)
+n_B <- length(d[d$Test == "B",]$Time)
+
+X_diff = X_B - X_A
+(Z_diff = X_diff / sqrt(S2_A/n_A + S2_B/n_B))
+```
+
+
+### Effect size
+```{r}
+library(effsize) 
+
+(cohen.d(Time ~ Test, hedges.correction=TRUE, data = d))
+```
+
+
+Column {data-width=350}
+-----------------------------------------------------------------------
+### Confidence intervals
+```{r}
+d <- as.data.frame(read_xls("AB_Test_1.xls"))
+Test<-as.factor(d$Test)
+Time <-as.numeric(d$Time)
+X_A <- mean(d[d$Test == "A",]$Time)
+X_B <- mean(d[d$Test == "B",]$Time)
+S2_A <- var(d[d$Test == "A",]$Time)
+S2_B <- var(d[d$Test == "B",]$Time)
+n_A <- length(d[d$Test == "A",]$Time)
+n_B <- length(d[d$Test == "B",]$Time)
+
+X_diff = X_B - X_A
+SE_diff = sqrt(S2_A/n_A + S2_B/n_B)
+
+t.test(Time ~ Test, data=d, alternative="two.sided", conf.level = 0.95, var.equal=TRUE)
+```
+
+
+Descriptive statistics {data-icon="fa-signal"}
+===================================== 
+Column{.tabset}
+-----------------------------------------------------------------------
+### Descriptive statistics
+```{r}
+d <- as.data.frame(read_excel("AB_Test_1.xls"))
+Test<-as.factor(d$Test)
+Time <-as.numeric(d$Time)
+describeBy(Time, Test)
+```
+
+
+### Boxplot
+```{r}
+cohensD<-function(d, varName){
+  p<-ggplot(d, aes(x=Test, y=eval(parse(text = varName)), fill=Test)) +
+    geom_boxplot() + labs(y = varName, x="Test") + labs(fill = I("red"))
+    plot(p)
+}
+cohensD(d, "Time")
+```
+
+
+### Raw Data
+```{r filterable_table}
+#knitr::kable(d)
+library(DT)
+datatable(d)
+datatable(head(d), class = 'cell-border stripe')
+```
+
+
+### Histogram for Time
+```{r}
+Histo <- ggplot(d,aes(x=Time,fill=Test)) + geom_histogram() + 
+  stat_bin(bins = 30) + ggtitle("Histogram for Time")
+Histo
+```
+
+
+### Summary Table
+```{r}
+require("dplyr")
+group_by(d, Test) %>%
+  summarise(
+    count = n(),
+    mean = mean(Time, na.rm = TRUE),
+    sd = sd(Time, na.rm = TRUE)
+  )
+
+```
+
+
+
